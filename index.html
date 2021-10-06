@@ -1,0 +1,295 @@
+<html>
+    <head>
+        <link rel="stylesheet" href="bootstrap.min.css">
+        <link rel="stylesheet" href="toastr.min.css">
+        <script src="jquery.min.js"></script>
+        <script src="jquery.csv.min.js"></script>
+        <script src="toastr.min.js"></script>
+        <script src="jszip.min.js"></script>
+        <script src="d3.min.js"></script>
+        <link rel="icon" href="favicon.ico" type="image/x-icon">
+        <title>LearnDash Statistics Helper</title>
+
+        <style>
+            #upload {
+                transition: 0.5s;
+            }
+
+            body {
+                overflow-x: hidden;
+            }
+            .arc .textbih {
+              font: 12px sans-serif;
+              text-anchor: middle;
+            }
+            
+            .arc path {
+              stroke: #fff;
+            }
+
+            .tooltip {                                                        /* NEW */
+                background: #eee;                                               /* NEW */
+                box-shadow: 0 0 5px #999999;                                    /* NEW */
+                color: #333;                                                    /* NEW */
+                display: none;                                                  /* NEW */
+                font-size: 12px;                                                /* NEW */
+                left: 130px;                                                    /* NEW */
+                padding: 10px;                                                  /* NEW */
+                position: absolute;                                             /* NEW */
+                text-align: center;                                             /* NEW */
+                top: 95px;                                                      /* NEW */
+                width: 80px;                                                    /* NEW */
+                z-index: 10;                                                    /* NEW */
+            }    
+            rect {
+                stroke-width: 2;
+            }
+
+            h5 {
+                height: 150px;
+                overflow: hidden;
+            }
+
+            .overlay {
+                width: 100vw;
+                height: 100vh;
+                top: 0;
+                left: 0;
+                position: absolute;
+                overflow: hidden;
+                background-color: #ffffffaa;
+                transition: all 0.5s;
+                opacity: 0;
+                display: none;
+            }
+
+            .overlayimg {
+                height: 100%;
+                background-image: url('th_logo_hover.svg');
+                background-position: center center;
+                background-size: 40%;
+                background-repeat: no-repeat;
+                transition: all 1s;
+            }
+
+        </style>
+    </head>
+    <body>
+        <div class="container-fluid mt-5">
+            <div class="overlay" id="overlay">
+                <div class="overlayimg" id="overlayimg">
+
+                </div>
+            </div>
+            <div class="row col-lg-4 col-md-6 col-sm-10 offset-lg-4 offset-md-3 offset-sm-1">
+                <div class="row text-center">
+                    <div>
+                        <h2>LearnDash Statistics Helper</h2>
+                    </div>  
+                </div>
+                <div class="row mt-5 mb-5" id="upload">
+                    <form>
+                        <fieldset>
+                          <div class="form-group">
+                            <label for="zip" class="form-label mt-4">Exported zip: </label>
+                            <input id="zip" class="form-control" type="file">
+                          </div>
+                        </fieldset>
+                    </form>
+                </div>
+            </div>
+            <div class="row col-10 offset-1" id="charts">
+
+            </div>
+        </div>
+    </body>
+</html>
+
+<script>
+    var rotation_interval = undefined;
+    function rotate_stuff() {
+        document.getElementById('overlayimg').style.transform = 'scale(0.7)'
+        setTimeout(() => {
+            document.getElementById('overlayimg').style.transform = 'scale(1)'
+        }, 1000);
+    }
+    function show_loading() {
+        document.getElementById('upload').style.opacity = 0;
+        setTimeout(() => {
+            document.getElementById('upload').style.display = 'none';
+        }, 500);
+        document.getElementById('overlay').style.display = 'block';
+        setTimeout(() => {
+            document.getElementById('overlay').style.opacity = '1';
+            document.getElementById('overlayimg').style.transform = 'scale(0.7)'
+            setTimeout(() => {
+                document.getElementById('overlayimg').style.transform = 'scale(1)'
+                rotation_interval = setInterval(rotate_stuff, 2000)
+            }, 1000)
+        }, 50);
+    }
+
+    function destroy_loading() {
+        document.getElementById('overlay').style.opacity = '0';
+        setTimeout(() => {
+            document.getElementById('overlay').style.display = 'none';
+        }, 500);
+        clearInterval(rotation_interval)
+    }
+
+    function display_chart(title, question, container_id) {
+        let data = []
+        for (let i of question.score) {
+            if (data.filter(e => e.score == i).length > 0) {
+                data.filter(e => e.score == i)[0].number += 1;
+            } else {
+                data.push({score: i, number: 1});
+            }
+        }
+        let width = document.getElementById(container_id).getBoundingClientRect().width - 60,
+        height = document.getElementById(container_id).getBoundingClientRect().width - 60,
+        radius = Math.min(width, height) / 2;
+
+        let colors = ["#e63946","#0077b6","#0096c7","#00b4d8","#48cae4","#90e0ef","#ade8f4","#caf0f8"]
+
+        function color(value) {
+            return colors[(parseInt(value * 2)) % colors.length]
+        }
+
+        d3.select(`#${container_id}`).html(`<h5>${title.length > 103?title.slice(0, 100) + '...':title}</h5>`);
+                              
+                      
+        let svg = d3.select(`#${container_id}`).append("svg")
+            .attr("width", width)
+            .attr("height", height)
+
+        let g = svg.append("g").attr("transform", "translate(" + width / 2 + "," + height / 2 + ")");
+
+        let pie = d3.pie()
+            .sort(null)
+            .value(function(d) { return d.number; });
+
+        let path = d3.arc()
+            .outerRadius(radius)
+            .innerRadius(radius - 75);
+
+        let label = d3.arc()
+            .outerRadius(radius - 37)
+            .innerRadius(radius - 37);
+        
+        let arc = g.selectAll(".arc")
+            .data(pie(data))
+            .enter().append("g")
+            .attr("class", "arc");
+
+        arc.append("path")
+            .attr("d", path)
+            .attr("fill", function(d, i) { return color(d.data.score ); })
+
+        arc.append("text")
+            .attr('class', 'textbih')
+            .attr("transform", function(d) { return "translate(" + label.centroid(d) + ")"; })
+            .attr("dy", "0.35em")
+            .text(function(d) { 
+                var total = d3.sum(data.map(function(d) {                
+                    return d.number;                                     
+                }));                                                        
+                var percent = Math.round(1000 * d.data.number / total) / 10;            
+                return `${d.data.score} (${percent}%)`  
+        }); 
+
+        let total = d3.sum(data.map(function(d) {                
+            return d.number;                                     
+        }));                                     
+
+        document.getElementById(container_id).innerHTML += `<h6 class="mt-4"><b>${total}</b> users have answered the question.</h6>`;
+        for (let answer of data) {
+            let percent = Math.round(1000 * answer.number / total) / 10;
+            document.getElementById(container_id).innerHTML += `<h6><b>${answer.number}</b>/<b>${total}</b> (<b>${percent}%</b>) users gained ${answer.score} points.</h6>`;
+        }
+    }
+
+    function display_charts(questions) {
+        let qi = 0;
+        for (let i in questions){
+            document.getElementById('charts').innerHTML += `<div class="col-3 my-3 border" id="question_${qi}"></div>`
+            display_chart(i, questions[i], `question_${qi}`)
+            qi += 1;
+        }
+        destroy_loading();
+    }
+
+    function read_file(file){
+        return new Promise((resolve, reject) => {
+            var fr = new FileReader();  
+            fr.onload = () => {
+                resolve(fr.result )
+            };
+            fr.onerror = reject;
+            fr.readAsText(file);
+        });
+    }
+
+    document.getElementById('zip').addEventListener('change', (ev) => {
+        
+        if (ev.target.files.length != 1) {
+            toastr.warning('Upload exactly one file!');
+            return;
+        }
+
+        const regex_points_line = /,\d,\d,\d\d:\d\d:\d\d,[a-z]+/g
+        const regex_question_title_line = /.+","1\).+/g
+        const regex_question_title_line_no_answers = /",,,,/g
+        let file = ev.target.files[0];
+
+        if (!file.name.endsWith('.zip')) {
+            toastr.warning('Uploaded file must be zip archive!');
+            return;
+        }
+
+        
+        show_loading();
+        var zip = new JSZip();
+        zip.loadAsync(file)
+        .then(async function(zip) {
+            let answers = [];
+            let invalid_files = [];
+            for(let filename in zip.files) {
+                let content = await zip.files[filename].async("string")
+                let entries = content.split('\n" "\n" "\n').filter(e => e); 
+                for (let i = 0; i < entries.length; i++) {
+                    let questions_with_answers = entries[i].split('\n').filter(line => regex_question_title_line.test(line)).map(line => line.split('","')[0].replace('"', ''));
+                    let questions_no_answers = entries[i].split('\n').filter(line => regex_question_title_line_no_answers.test(line)).map(line => line.split('",')[0].replace('"', ''));
+                    let questions = [...questions_with_answers, ...questions_no_answers]
+                    let points = entries[i].split('\n').filter(line => regex_points_line.test(line)).map(line => line.split('",')[1].split(',').filter(e => e).slice(0,2));
+                    if (questions.length != points.length) {
+                        if (invalid_files.indexOf(filename) == -1)
+                            invalid_files.push(filename);
+                    } else {
+                        for (let j = 0; j < questions.length; j ++) {
+                            answers.push({question: questions[j], points: +points[j][0], score: +points[j][1]})
+                        }
+                    }
+                }
+            }
+
+            if (invalid_files.length > 0) 
+                toastr.error(`Some invalid files were found in zip. None of them are used in report. ${invalid_files.join(' ')}`)
+
+            question_objects = {}
+            answers = answers.filter(e => e.points != 0);
+            for (let answer of answers) {
+                if (question_objects.hasOwnProperty(answer.question)) {
+                    question_objects[answer.question].score.push(answer.score/answer.points);
+                } else { 
+                    question_objects[answer.question] = {
+                        points: answer.points,
+                        score: [answer.score/answer.points]
+                    }
+                }
+            }
+
+            display_charts(question_objects)
+        });
+    });
+</script>
