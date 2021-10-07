@@ -4,6 +4,7 @@
         <link rel="stylesheet" href="toastr.min.css">
         <script src="jquery.min.js"></script>
         <script src="jquery.csv.min.js"></script>
+        <script src="bootstrap.bundle.js"></script>
         <script src="toastr.min.js"></script>
         <script src="jszip.min.js"></script>
         <script src="d3.min.js"></script>
@@ -11,6 +12,22 @@
         <title>LearnDash Statistics Helper</title>
 
         <style>
+            .accordioninit  {
+                display: none;
+            }
+
+            .collapse.show {
+                opacity: 1 !important;
+            }
+
+            .collapse {
+                opacity: 0;
+                transition: all 1s;
+            }
+            tbody:nth-child(odd) {
+                background: #eee;
+            }
+
             #upload {
                 transition: 0.5s;
             }
@@ -98,8 +115,39 @@
                     </form>
                 </div>
             </div>
-            <div class="row col-10 offset-1" id="charts">
-
+            <div class="col-10 offset-1">
+                <div class="accordion accordioninit" id="accordionExample">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="headingOne">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="false" aria-controls="collapseOne">
+                            Table view
+                            </button>
+                        </h2>
+                        <div id="collapseOne" class="accordion-collapse collapse" aria-labelledby="headingOne" data-bs-parent="#accordionExample">
+                            <div class="accordion-body">
+                                <table class="table table-bordered" id="tb">
+                                    
+                                </table>
+                            </div> 
+                        </div>  
+                    </div>  
+                    <div class="accordion-item">
+                        
+                        <h2 class="accordion-header" id="headingTwo">
+                            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo" aria-expanded="true" aria-controls="collapseTwo">
+                            Charts
+                            </button>
+                        </h2>
+                        
+                        <div id="collapseTwo" class="accordion-collapse collapse show" aria-labelledby="headingTwo" data-bs-parent="#accordionExample">
+                            <div class="accordion-body">
+                                <div class="row" id="charts">
+                    
+                                </div>
+                            </div>
+                        </div>
+                    </div>  
+                </div>  
             </div>
         </div>
     </body>
@@ -137,6 +185,46 @@
         clearInterval(rotation_interval)
     }
 
+    function add_table_row(title, question) {
+        let data = []
+        for (let i of question.score) {
+            if (data.filter(e => e.score == i).length > 0) {
+                data.filter(e => e.score == i)[0].number += 1;
+            } else {
+                data.push({score: i, number: 1});
+            }
+        }
+        
+        let total = d3.sum(data.map(function(d) {                
+            return d.number;                                     
+        }));                    
+
+        let points = question.points; 
+
+        let ht = `  <tbody>
+                        <tr>
+                            <td rowspan="${data.length}">${title}</td>
+                            <td rowspan="${data.length}">${points}</td>
+                            <td>${data[0].number}/${total} (${Math.round(1000 * data[0].number / total) / 10}%)</td>
+                            <td>${data[0].score}</td>
+                        </tr>
+        `
+
+        for (let i = 1; i < data.length; i++) {
+            let d = data[i];
+            
+            ht += `
+                            <tr>
+                                <td>${data[i].number}/${total} (${Math.round(1000 * data[i].number / total) / 10}%)</td>
+                                <td>${data[i].score}</td>
+                            </tr>
+            `
+        }
+
+        ht += `</tbody>`;
+
+        document.getElementById('tb').innerHTML += ht
+    }
     function display_chart(title, question, container_id) {
         let data = []
         for (let i of question.score) {
@@ -146,6 +234,8 @@
                 data.push({score: i, number: 1});
             }
         }
+
+
         let width = document.getElementById(container_id).getBoundingClientRect().width - 60,
         height = document.getElementById(container_id).getBoundingClientRect().width - 60,
         radius = Math.min(width, height) / 2;
@@ -211,9 +301,21 @@
 
     function display_charts(questions) {
         let qi = 0;
+        
+        document.getElementById('accordionExample').style.display = 'block';
+        document.getElementById('tb').innerHTML = `<thead>
+                            <tr>
+                                <th scope="col">Question</th>
+                                <th scope="col">Question points</th>
+                                <th scope="col">Number of users</th>
+                                <th scope="col">Score</th>
+                            </tr>
+                        </thead>`
+                        
         for (let i in questions){
             document.getElementById('charts').innerHTML += `<div class="col-3 my-3 border" id="question_${qi}"></div>`
             display_chart(i, questions[i], `question_${qi}`)
+            add_table_row(i, questions[i])
             qi += 1;
         }
         destroy_loading();
